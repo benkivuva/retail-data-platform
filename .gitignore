@@ -17,3 +17,8 @@ logs/*.log
 secrets/
 *.json.key
 service-account*.json
+
+# dbt artifacts
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
