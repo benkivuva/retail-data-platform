@@ -129,6 +129,8 @@ See [.github/workflows/dbt_ci.yml](.github/workflows/dbt_ci.yml).
 - [Data Catalogue](docs/data_catalogue.md)
 - [Runbook](docs/runbook.md)
 - [Data Quality Log](docs/data_quality_log.md)
+- [Cost Report](docs/cost_report.md)
+- [Roadmap](docs/roadmap.md)
 - [Dashboard](dashboards/dashboard_link.md)
 - [AI Context](ai/context.md)
 
