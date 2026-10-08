@@ -1,136 +1,161 @@
-"""Ask business questions against governed AI views.
+"""Ask business questions against governed AI views using Google Gemini.
 
-Uses Claude with the BigQuery `ai` dataset exposed as a tool. The model
-is only allowed to run SELECT queries against approved views defined in
-context.md.
+Exposes the BigQuery `ai` dataset as a function tool. The model is restricted
+to SELECT queries against approved views.
 """
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
-from anthropic import Anthropic
+from google import genai
+from google.genai import types
 from google.cloud import bigquery
 
 PROJECT_ID = "retail-data-platform-511008"
 AI_DATASET = "ai"
+MODEL = "gemini-2.5-flash"
 ALLOWED_TABLES = {
     "ai_daily_metrics",
     "ai_customers_summary",
     "ai_products_summary",
 }
 CONTEXT_PATH = Path(__file__).parent / "context.md"
-KEY_PATH = Path(r"C:\keys\anthropic.txt")
 
 
 def load_api_key() -> str:
-    if KEY_PATH.exists():
-        return KEY_PATH.read_text().strip()
-    key = os.environ.get("ANTHROPIC_API_KEY")
+    key = os.environ.get("GEMINI_API_KEY")
     if not key:
         raise SystemExit(
-            "Anthropic API key not found. Save it to C:\\keys\\anthropic.txt "
-            "or set the ANTHROPIC_API_KEY environment variable."
+            "GEMINI_API_KEY not set. In PowerShell run:\n"
+            '  $env:GEMINI_API_KEY = "your-key-here"'
         )
     return key
 
 
 def load_context() -> str:
-    return CONTEXT_PATH.read_text(encoding="utf-8")
+    if CONTEXT_PATH.exists():
+        return CONTEXT_PATH.read_text(encoding="utf-8")
+    return (
+        "You are a retail data analyst assistant. Answer business questions by "
+        "running SELECT queries with the run_sql tool. Only query these tables: "
+        + ", ".join(sorted(ALLOWED_TABLES))
+    )
 
 
 def is_safe_query(sql: str) -> tuple[bool, str]:
-    lower = sql.lower().strip()
-    if not lower.startswith("select"):
+    clean_sql = re.sub(r"\s+", " ", sql).strip().lower()
+
+    if not clean_sql.startswith("select"):
         return False, "Only SELECT queries are allowed."
-    for forbidden in ("insert", "update", "delete", "drop", "create", "alter"):
-        if f" {forbidden} " in f" {lower} ":
-            return False, f"Keyword '{forbidden}' is not allowed."
-    if f"`{PROJECT_ID}.{AI_DATASET}." not in sql and f"{AI_DATASET}." not in sql:
-        return False, "Queries must target the ai dataset only."
+
+    if clean_sql.rstrip(";").count(";") > 0:
+        return False, "Multiple SQL statements are not allowed."
+
+    found_tables = set(
+        re.findall(r"(?:from|join)\s+[\w`.-]*?([\w-]+)", clean_sql)
+    )
+    found_tables = {t.replace("`", "") for t in found_tables if t}
+
+    if not found_tables:
+        return False, "Could not identify target tables in the query."
+
+    for table in found_tables:
+        if table not in ALLOWED_TABLES:
+            return False, f"Table '{table}' is not in the allowed views list."
+
     return True, ""
 
 
-def run_bigquery(sql: str) -> str:
-    client = bigquery.Client(project=PROJECT_ID)
-    rows = list(client.query(sql).result(max_results=100))
-    if not rows:
-        return "No rows returned."
-    headers = list(rows[0].keys())
-    lines = [" | ".join(headers)]
-    for row in rows:
-        lines.append(" | ".join(str(row[h]) for h in headers))
-    return "\n".join(lines)
+def run_sql(sql: str) -> str:
+    """Run a BigQuery Standard SQL SELECT against permitted AI views.
 
-
-TOOLS = [
-    {
-        "name": "run_sql",
-        "description": (
-            "Run a BigQuery Standard SQL SELECT query against the ai dataset. "
-            "Only tables ai_daily_metrics, ai_customers_summary, and "
-            "ai_products_summary are permitted."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "sql": {"type": "string", "description": "BigQuery SQL SELECT query."}
-            },
-            "required": ["sql"],
-        },
-    }
-]
-
-
-def handle_tool_call(name: str, tool_input: dict) -> str:
-    if name != "run_sql":
-        return f"Unknown tool: {name}"
-    sql = tool_input.get("sql", "")
+    Args:
+        sql: A strict SELECT statement targeting the ai dataset.
+    """
     ok, err = is_safe_query(sql)
     if not ok:
         return f"Query rejected: {err}"
+
     try:
-        return run_bigquery(sql)
+        client = bigquery.Client(project=PROJECT_ID)
+        rows = list(client.query(sql).result(max_results=100))
+        if not rows:
+            return "Query returned no rows."
+        headers = list(rows[0].keys())
+        lines = [" | ".join(headers)]
+        for row in rows:
+            lines.append(" | ".join(str(row[h]) for h in headers))
+        return "\n".join(lines)
     except Exception as exc:  # noqa: BLE001
         return f"BigQuery error: {exc}"
 
 
-def ask(question: str) -> str:
-    client = Anthropic(api_key=load_api_key())
-    system = load_context()
-    messages = [{"role": "user", "content": question}]
+def ask(client: genai.Client, question: str) -> str:
+    tool = types.Tool(
+        function_declarations=[
+            types.FunctionDeclaration(
+                name="run_sql",
+                description=(
+                    "Run a BigQuery SQL SELECT against the ai dataset. "
+                    "Allowed tables: " + ", ".join(sorted(ALLOWED_TABLES))
+                ),
+                parameters=types.Schema(
+                    type=types.Type.OBJECT,
+                    properties={
+                        "sql": types.Schema(
+                            type=types.Type.STRING,
+                            description="BigQuery SQL SELECT statement.",
+                        )
+                    },
+                    required=["sql"],
+                ),
+            )
+        ]
+    )
 
-    while True:
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=2048,
-            system=system,
-            tools=TOOLS,
-            messages=messages,
+    config = types.GenerateContentConfig(
+        system_instruction=load_context(),
+        tools=[tool],
+    )
+
+    contents = [
+        types.Content(role="user", parts=[types.Part(text=question)])
+    ]
+
+    for _ in range(10):
+        response = client.models.generate_content(
+            model=MODEL,
+            contents=contents,
+            config=config,
         )
+        candidate = response.candidates[0]
+        parts = candidate.content.parts
 
-        if response.stop_reason == "end_turn":
-            parts = [b.text for b in response.content if b.type == "text"]
-            return "\n".join(parts).strip()
+        calls = [p.function_call for p in parts if p.function_call]
+        if not calls:
+            text_parts = [p.text for p in parts if p.text]
+            return "\n".join(text_parts).strip()
 
-        tool_uses = [b for b in response.content if b.type == "tool_use"]
-        if not tool_uses:
-            parts = [b.text for b in response.content if b.type == "text"]
-            return "\n".join(parts).strip()
+        contents.append(candidate.content)
+        tool_parts = []
+        for fc in calls:
+            sql = fc.args.get("sql", "") if fc.args else ""
+            result = run_sql(sql)
+            tool_parts.append(
+                types.Part.from_function_response(
+                    name=fc.name,
+                    response={"result": result},
+                )
+            )
+        contents.append(types.Content(role="tool", parts=tool_parts))
 
-        messages.append({"role": "assistant", "content": response.content})
-        tool_results = []
-        for block in tool_uses:
-            output = handle_tool_call(block.name, block.input)
-            tool_results.append({
-                "type": "tool_result",
-                "tool_use_id": block.id,
-                "content": output,
-            })
-        messages.append({"role": "user", "content": tool_results})
+    return "Stopped after 10 tool calls without a final answer."
 
 
 def main() -> None:
+    client = genai.Client(api_key=load_api_key())
     print("Ask a business question. Type 'quit' to exit.")
     while True:
         try:
@@ -143,7 +168,10 @@ def main() -> None:
         if not question:
             continue
         print()
-        print(ask(question))
+        try:
+            print(ask(client, question))
+        except Exception as exc:  # noqa: BLE001
+            print(f"[error] {exc}")
 
 
 if __name__ == "__main__":
