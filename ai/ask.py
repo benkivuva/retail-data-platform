@@ -53,13 +53,19 @@ def is_safe_query(sql: str) -> tuple[bool, str]:
     if clean_sql.rstrip(";").count(";") > 0:
         return False, "Multiple SQL statements are not allowed."
 
-    found_tables = set(
-        re.findall(r"(?:from|join)\s+[\w`.-]*?([\w-]+)", clean_sql)
-    )
-    found_tables = {t.replace("`", "") for t in found_tables if t}
+    # Capture the full qualified table reference after FROM or JOIN,
+    # including any project.dataset prefix and surrounding backticks.
+    qualified = re.findall(r"(?:from|join)\s+([`\w.-]+)", clean_sql)
 
-    if not found_tables:
+    if not qualified:
         return False, "Could not identify target tables in the query."
+
+    found_tables = set()
+    for name in qualified:
+        cleaned = name.replace("`", "")
+        # The table name is the last component of project.dataset.table.
+        table = cleaned.rsplit(".", 1)[-1]
+        found_tables.add(table)
 
     for table in found_tables:
         if table not in ALLOWED_TABLES:

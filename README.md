@@ -4,13 +4,18 @@ An end-to-end analytics engineering platform for an online supermarket. Ingests
 raw operational data, models it into a trusted star schema in BigQuery, defines
 core metrics once, and serves them to BI tools and AI assistants.
 
+The project includes a real data-quality incident (on-time delivery rate
+silently reporting 100%), diagnosed, fixed, and covered by a regression test.
+See [docs/data_quality_log.md](docs/data_quality_log.md).
+
 ## Architecture
 
-    raw (CSV) -> staging (views) -> intermediate (views) -> marts (tables)
-                                                              |-- dimensions
-                                                              |-- facts
-                                                              |-- metrics_daily
-                                                              |-- ai views (PII-free)
+    raw (CSV) -> staging -> intermediate -> marts
+                                             |-- dimensions
+                                             |-- facts
+                                             |-- metrics_daily
+                                             |
+                                             +-> ai (PII-free views)
 
 Lineage:
 
@@ -23,7 +28,7 @@ Lineage:
 - **Language:** SQL, Python
 - **Environment:** `uv` for Python and dependency management
 - **BI:** Looker Studio
-- **AI:** Google Gemini with governed SQL tool
+- **AI:** Google Gemini with a governed SQL tool
 - **CI/CD:** GitHub Actions
 - **Version control:** Git, feature-branch workflow
 
@@ -51,8 +56,7 @@ formulas, owners, and the change process.
 - Custom business rules (order reconciliation, delivery timing, inventory bounds, payment limits)
 - Metric bounds on `metrics_daily`
 
-See [docs/data_quality_log.md](docs/data_quality_log.md) for a real incident
-that was diagnosed, fixed, and covered by a regression test.
+See [docs/data_quality_log.md](docs/data_quality_log.md) for the incident and fix.
 
 ## Dashboard
 
@@ -77,22 +81,26 @@ an allowlist that:
 - Restricts access to three PII-free views: `ai_daily_metrics`,
   `ai_customers_summary`, `ai_products_summary`
 
-See [ai/context.md](ai/context.md) for definitions and query rules, and
-[ai/ask.py](ai/ask.py) for the implementation.
+The allowlist is covered by unit tests in `tests/test_safe_query.py`, run on
+every push. The assistant itself is not exercised in CI because it requires an
+API key and live network access.
+
+See [ai/context.md](ai/context.md) and [ai/ask.py](ai/ask.py).
 
 ## CI/CD
 
-Every push to `main` and every pull request runs `dbt build` in GitHub Actions.
-The workflow installs dependencies, writes BigQuery credentials from GitHub
-secrets, runs `dbt debug`, and executes the full test suite. Failed tests block
-the merge.
+Every push to `main` and every pull request runs the full test suite in GitHub
+Actions: `dbt build` against BigQuery plus pytest for the SQL allowlist. Failed
+tests block the merge.
 
 See [.github/workflows/dbt_ci.yml](.github/workflows/dbt_ci.yml).
 
 ## Getting Started
 
 1. Install `uv`, `gcloud`, and Python 3.12.
-2. Set up a GCP project with datasets `raw`, `staging`, `intermediate`, `marts`.
+2. Set up a GCP project with datasets `raw`, `staging`, `intermediate`, `marts`, `ai`.
+   The `ai` dataset is created automatically by dbt on first build, or manually
+   with `bq mk --location=US ai`.
 3. Create a service account with BigQuery Data Editor and Job User roles.
 4. Configure `~/.dbt/profiles.yml` with the service account key.
 5. Generate synthetic data and load it from the repository root:
@@ -147,4 +155,6 @@ See [.github/workflows/dbt_ci.yml](.github/workflows/dbt_ci.yml).
     │   │   └── ai/
     │   └── tests/               # custom singular tests
     ├── docs/
+    ├── tests/
+    │   └── test_safe_query.py   # unit tests for the AI allowlist
     └── pyproject.toml
