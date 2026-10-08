@@ -149,7 +149,7 @@ def ask(client: genai.Client, question: str) -> str:
                     response={"result": result},
                 )
             )
-        contents.append(types.Content(role="tool", parts=tool_parts))
+        contents.append(types.Content(role="user", parts=tool_parts))
 
     return "Stopped after 10 tool calls without a final answer."
 
