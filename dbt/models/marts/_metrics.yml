@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: metrics_daily
+    description: >
+      Single source of truth for core business metrics, aggregated to one row
+      per calendar day. All dashboards, tools, and AI assistants must read
+      metrics from this model, not recompute them.
+    columns:
+      - name: metric_date
+        description: "Calendar date the metrics cover."
+        tests: [unique, not_null]
+      - name: total_orders
+        description: "Metric: Total Orders. Count of delivered orders. Owner: Operations."
+      - name: gmv
+        description: "Metric: GMV. Sum of gross_amount before discounts. Owner: Commercial."
+      - name: net_revenue
+        description: "Metric: Net Revenue. Gross amount minus discounts plus delivery fees. Owner: Finance."
+      - name: total_discount
+        description: "Metric: Total Discount. Sum of discount_amount. Owner: Commercial."
+      - name: total_delivery_fees
+        description: "Metric: Total Delivery Fees. Sum of delivery_fee. Owner: Finance."
+      - name: total_items
+        description: "Metric: Total Items. Sum of item_count across orders. Owner: Operations."
+      - name: total_units
+        description: "Metric: Total Units. Sum of quantity across order items. Owner: Operations."
+      - name: total_gross_margin
+        description: "Metric: Gross Margin. Items subtotal minus items cost. Owner: Finance."
+      - name: average_order_value
+        description: "Metric: Average Order Value (AOV). Net Revenue divided by Total Orders. Owner: Commercial."
+      - name: deliveries_delivered
+        description: "Metric: Deliveries Delivered. Count of successful deliveries. Owner: Operations."
+      - name: deliveries_on_time
+        description: "Metric: Deliveries On Time. Count of deliveries where delivered_at <= promised_at. Owner: Operations."
+      - name: on_time_delivery_rate
+        description: "Metric: On-Time Delivery Rate. Deliveries On Time divided by Deliveries Delivered. Owner: Operations."
+      - name: avg_delivery_minutes
+        description: "Metric: Average Delivery Time (minutes). Mean of delivered_at minus dispatch_at. Owner: Operations."
+      - name: stockout_products
+        description: "Metric: Stockout Products. Count of products with qty_available <= 0 on that day. Owner: Inventory."
