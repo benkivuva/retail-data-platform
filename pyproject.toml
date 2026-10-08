@@ -7,7 +7,12 @@ authors = [
     { name = "benkivuva", email = "benkivuvak5@gmail.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "dbt-bigquery>=1.12.1",
+    "dbt-core>=1.12.5",
+    "faker>=40.41.0",
+    "pandas>=3.0.6",
+]
 
 [project.scripts]
 retail-data-platform = "retail_data_platform:main"
