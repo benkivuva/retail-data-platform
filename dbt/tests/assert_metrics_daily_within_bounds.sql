@@ -1,4 +1,6 @@
--- Fails if any daily metric is out of its valid range.
+-- Fails if any daily metric is out of its valid range,
+-- or if an on-time rate is exactly 1.0 with a non-zero denominator
+-- for too many days in a row (a sign the denominator is wrong).
 select *
 from {{ ref('metrics_daily') }}
 where
@@ -10,3 +12,4 @@ where
     or (on_time_delivery_rate is not null and (on_time_delivery_rate < 0 or on_time_delivery_rate > 1))
     or (avg_delivery_minutes is not null and avg_delivery_minutes < 0)
     or stockout_products < 0
+    or (deliveries_delivered > 0 and deliveries_on_time > deliveries_delivered)

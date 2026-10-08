@@ -15,12 +15,14 @@ with orders as (
 ),
 
 deliveries as (
+    -- A delivery is "completed" if it arrived, whether on time or late.
+    -- 'failed' deliveries are excluded because the customer never received goods.
     select
         date(delivered_at)         as delivery_date,
         on_time_flag,
         delivery_minutes
     from {{ ref('fct_deliveries') }}
-    where delivery_status = 'delivered'
+    where delivery_status in ('delivered', 'delivered_late')
 ),
 
 inventory as (
