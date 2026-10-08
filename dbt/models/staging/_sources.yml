@@ -1,0 +1,17 @@
+version: 2
+
+sources:
+  - name: raw
+    database: retail-data-platform-511008
+    schema: raw
+    description: "Raw CSVs loaded from source systems. Not to be queried directly by analysts."
+    tables:
+      - name: suppliers
+      - name: products
+      - name: customers
+      - name: orders
+      - name: order_items
+      - name: payments
+      - name: deliveries
+      - name: inventory_snapshots
+      - name: supplier_orders
