@@ -56,3 +56,6 @@ jobs:
       - name: dbt build
         working-directory: dbt
         run: uv run dbt build
+      
+      - name: Run unit tests
+        run: uv run pytest tests/ -v
