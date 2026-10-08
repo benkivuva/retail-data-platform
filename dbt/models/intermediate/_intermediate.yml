@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: int_order_totals
+    description: "One row per order with item totals and gross margin."
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+
+  - name: int_delivery_times
+    description: "One row per delivery with timing calculations and on-time flag."
+    columns:
+      - name: delivery_id
+        tests: [unique, not_null]
+
+  - name: int_inventory_movements
+    description: "Daily inventory position per product per warehouse with day-over-day change."
+    columns:
+      - name: product_id
+        tests: [not_null]
+      - name: warehouse_id
+        tests: [not_null]
+      - name: snapshot_date
+        tests: [not_null]
+
+  - name: int_supplier_lead_times
+    description: "Supplier orders with actual lead time and fill rate."
+    columns:
+      - name: supplier_order_id
+        tests: [unique, not_null]
