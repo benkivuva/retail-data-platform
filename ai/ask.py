@@ -15,7 +15,7 @@ from google.cloud import bigquery
 
 PROJECT_ID = "retail-data-platform-511008"
 AI_DATASET = "ai"
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-3.8-flash"
 ALLOWED_TABLES = {
     "ai_daily_metrics",
     "ai_customers_summary",

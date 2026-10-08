@@ -12,6 +12,7 @@ dependencies = [
     "dbt-bigquery>=1.12.1",
     "dbt-core>=1.12.5",
     "faker>=40.41.0",
+    "google-genai>=1.75.0",
     "pandas>=3.0.6",
 ]
 

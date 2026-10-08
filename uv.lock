@@ -2151,6 +2151,7 @@ dependencies = [
     { name = "dbt-bigquery" },
     { name = "dbt-core" },
     { name = "faker" },
+    { name = "google-genai" },
     { name = "pandas" },
 ]
 
@@ -2160,6 +2161,7 @@ requires-dist = [
     { name = "dbt-bigquery", specifier = ">=1.12.1" },
     { name = "dbt-core", specifier = ">=1.12.5" },
     { name = "faker", specifier = ">=40.41.0" },
+    { name = "google-genai", specifier = ">=1.75.0" },
     { name = "pandas", specifier = ">=3.0.6" },
 ]
 
