@@ -1,0 +1,19 @@
+select
+    order_id,
+    customer_id,
+    order_date,
+    order_timestamp,
+    order_status,
+    channel,
+    delivery_zone_id,
+    warehouse_id,
+    gross_amount,
+    discount_amount,
+    delivery_fee,
+    net_revenue,
+    item_count,
+    total_quantity,
+    items_subtotal,
+    items_cost,
+    gross_margin
+from {{ ref('int_order_totals') }}

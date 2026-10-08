@@ -1,0 +1,114 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: "Customer dimension."
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+
+  - name: dim_products
+    description: "Product dimension with supplier attributes."
+    columns:
+      - name: product_id
+        tests: [unique, not_null]
+
+  - name: dim_suppliers
+    description: "Supplier dimension."
+    columns:
+      - name: supplier_id
+        tests: [unique, not_null]
+
+  - name: dim_delivery_zones
+    description: "Delivery zone dimension."
+    columns:
+      - name: zone_id
+        tests: [unique, not_null]
+
+  - name: dim_drivers
+    description: "Driver dimension."
+    columns:
+      - name: driver_id
+        tests: [unique, not_null]
+
+  - name: dim_warehouses
+    description: "Warehouse dimension."
+    columns:
+      - name: warehouse_id
+        tests: [unique, not_null]
+
+  - name: dim_dates
+    description: "Date spine covering all history."
+    columns:
+      - name: date_day
+        tests: [unique, not_null]
+
+  - name: fct_orders
+    description: "One row per customer order with financials and item totals."
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+
+  - name: fct_order_items
+    description: "One row per order line item."
+    columns:
+      - name: order_item_id
+        tests: [unique, not_null]
+      - name: order_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_orders')
+                field: order_id
+      - name: product_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_products')
+                field: product_id
+
+  - name: fct_deliveries
+    description: "One row per delivery with timing and on-time flag."
+    columns:
+      - name: delivery_id
+        tests: [unique, not_null]
+      - name: order_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_orders')
+                field: order_id
+
+  - name: fct_inventory_snapshots
+    description: "Daily inventory position per product per warehouse."
+    columns:
+      - name: product_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_products')
+                field: product_id
+
+  - name: fct_supplier_orders
+    description: "Supplier purchase orders with lead time and fill rate."
+    columns:
+      - name: supplier_order_id
+        tests: [unique, not_null]
+      - name: supplier_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_suppliers')
+                field: supplier_id
