@@ -27,12 +27,12 @@ PAGE_STYLE = {
     "margin": "0",
 }
 
-# Nav entries — add new dashboards here and they appear everywhere.
 NAV_ITEMS = [
     ("Operations", "/dashboards/operations/"),
     ("Commercial", "/dashboards/commercial/"),
     ("Finance", "/dashboards/finance/"),
     ("Customers", "/dashboards/customers/"),
+    ("AI Assistant", "/ai/chat"),
 ]
 
 

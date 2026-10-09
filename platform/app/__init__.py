@@ -37,8 +37,11 @@ def create_app(config_class=DevConfig) -> Flask:
 
 
 def _register_blueprints(app: Flask) -> None:
+    from .ai.routes import bp as ai_bp
     from .auth.routes import bp as auth_bp
+
     app.register_blueprint(auth_bp)
+    app.register_blueprint(ai_bp)
 
 
 def _register_auth_gate(app: Flask) -> None:
