@@ -14,6 +14,7 @@ See [docs/data_quality_log.md](docs/data_quality_log.md).
                                              |-- dimensions
                                              |-- facts
                                              |-- metrics_daily
+                                             |-- mon_pipeline_health
                                              |
                                              +-> ai (PII-free views)
 
@@ -27,6 +28,7 @@ Lineage:
 - **Transformation:** dbt Core with `dbt-bigquery`
 - **Orchestration:** Dagster (daily schedule, asset-level observability)
 - **Data Quality:** dbt tests (in-warehouse) + Soda Core (anomaly detection)
+- **Monitoring:** Dagster UI (pipeline health), Looker Studio (business + pipeline metrics), Soda Core (anomaly detection)
 - **Language:** SQL, Python
 - **Environment:** `uv` for Python and dependency management
 - **BI:** Looker Studio
@@ -65,18 +67,35 @@ Two complementary layers:
 - Negative financial values (revenue, discount, quantity)
 - Row-count thresholds for anomaly detection
 
-The Soda scan runs as a downstream Dagster asset; a failed scan fails the pipeline. See `soda/checks.yml`.
+The Soda scan runs as a downstream Dagster asset; a failed scan fails the
+pipeline. See `soda/checks.yml`.
 
 See [docs/data_quality_log.md](docs/data_quality_log.md) for the incident and fix.
 
+## Monitoring
+
+Three layers cover pipeline health:
+
+- **Dagster UI** — per-asset run status, timing, and error logs for every dbt
+  build and Soda scan
+- **Soda Core** — anomaly detection on the raw layer (row counts, negative
+  values, duplicate IDs)
+- **Looker Studio (Pipeline Health page)** — freshness lag, row counts, and
+  latest metric date, read from `marts.mon_pipeline_health`
+
+The `mon_pipeline_health` model is rebuilt on every `dbt build` and captures
+the current state of the warehouse in a single row. A freshness lag greater
+than two days is visible at a glance.
+
 ## Dashboard
 
-A four-page Looker Studio dashboard reads directly from `marts.metrics_daily`:
+A five-page Looker Studio dashboard reads directly from `marts`:
 
 - **Operations** — orders, deliveries, on-time rate, stockouts
 - **Commercial** — GMV, net revenue, AOV, units
 - **Finance** — revenue, discounts, delivery fees, gross margin
 - **Customers** — segments, acquisition channels
+- **Pipeline Health** — freshness lag, row counts, latest metric date
 
 Link: [dashboards/dashboard_link.md](dashboards/dashboard_link.md)
 
@@ -90,7 +109,7 @@ and error logs.
 
 ![Dagster DAG](docs/dagster_lineage.png)
 
-Successful materialization of all 29 assets:
+Successful materialization of all assets:
 
 ![Dagster run](docs/dagster_run.png)
 
@@ -160,11 +179,12 @@ See [.github/workflows/dbt_ci.yml](.github/workflows/dbt_ci.yml).
 
 10. Optional — run the AI assistant:
 
-       $env:GEMINI_API_KEY = "your-key"
-       uv run python ai/ask.py
+        $env:GEMINI_API_KEY = "your-key"
+        uv run python ai/ask.py
 
 ## Documentation
 
+- [Architecture](docs/architecture.md)
 - [Metric Dictionary](docs/metric_dictionary.md)
 - [Data Catalogue](docs/data_catalogue.md)
 - [Runbook](docs/runbook.md)
@@ -193,11 +213,11 @@ See [.github/workflows/dbt_ci.yml](.github/workflows/dbt_ci.yml).
     │   ├── models/
     │   │   ├── staging/
     │   │   ├── intermediate/
-    │   │   ├── marts/
+    │   │   ├── marts/           # dims, facts, metrics_daily, mon_pipeline_health
     │   │   └── ai/
     │   └── tests/               # custom singular tests
     ├── docs/
-|   ├── orchestration/
+    ├── orchestration/
     │   └── definitions.py       # Dagster assets + daily schedule + Soda scan
     ├── soda/
     │   ├── configuration.yml    # Soda BigQuery connection
