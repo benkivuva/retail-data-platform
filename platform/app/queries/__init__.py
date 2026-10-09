@@ -1,0 +1,1 @@
+"""Data access layer — all BigQuery SQL lives under this package."""
