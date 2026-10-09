@@ -25,6 +25,7 @@ Lineage:
 
 - **Warehouse:** Google BigQuery
 - **Transformation:** dbt Core with `dbt-bigquery`
+- **Orchestration:** Dagster (daily schedule, asset-level observability)
 - **Language:** SQL, Python
 - **Environment:** `uv` for Python and dependency management
 - **BI:** Looker Studio
@@ -68,6 +69,26 @@ A four-page Looker Studio dashboard reads directly from `marts.metrics_daily`:
 - **Customers** — segments, acquisition channels
 
 Link: [dashboards/dashboard_link.md](dashboards/dashboard_link.md)
+
+## Orchestration
+
+Dagster orchestrates the full dbt pipeline as a single asset graph: one Dagster
+asset per dbt model, with a daily 6 AM schedule and dbt-test-based guardrails
+that halt downstream models on failure. Every dbt run is tracked in the Dagster
+UI with per-asset status, timing, and error logs.
+
+![Dagster DAG](docs/dagster_lineage.png)
+
+Successful materialization of all 29 assets:
+
+![Dagster run](docs/dagster_run.png)
+
+Run locally:
+
+    uv run dagster dev -f orchestration/definitions.py
+
+In production this would deploy to Dagster+ or a scheduled VM; here it runs in
+dev mode for demonstration.
 
 ## AI Assistant
 
@@ -118,7 +139,11 @@ See [.github/workflows/dbt_ci.yml](.github/workflows/dbt_ci.yml).
        uv run dbt docs generate
        uv run dbt docs serve
 
-8. Optional — run the AI assistant:
+8. Optional — run the pipeline under Dagster:
+
+       uv run dagster dev -f orchestration/definitions.py
+
+9. Optional — run the AI assistant:
 
        $env:GEMINI_API_KEY = "your-key"
        uv run python ai/ask.py
@@ -157,6 +182,8 @@ See [.github/workflows/dbt_ci.yml](.github/workflows/dbt_ci.yml).
     │   │   └── ai/
     │   └── tests/               # custom singular tests
     ├── docs/
+    ├── orchestration/
+    │   └── definitions.py       # Dagster assets + daily schedule
     ├── tests/
     │   └── test_safe_query.py   # unit tests for the AI allowlist
     └── pyproject.toml
