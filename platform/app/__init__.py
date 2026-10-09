@@ -17,9 +17,6 @@ def create_app(config_class=DevConfig) -> Flask:
     db.init_app(app)
     login_manager.init_app(app)
     csrf.init_app(app)
-
-    # Dash dashboards don't need CSRF protection (they're read-only views)
-    # and cannot carry the CSRF token, so exempt them.
     csrf.exempt("/dashboards/*")
 
     from .auth.models import User
@@ -41,12 +38,10 @@ def create_app(config_class=DevConfig) -> Flask:
 
 def _register_blueprints(app: Flask) -> None:
     from .auth.routes import bp as auth_bp
-
     app.register_blueprint(auth_bp)
 
 
 def _register_auth_gate(app: Flask) -> None:
-    """Require authentication on every route except auth, health, and static."""
     allowed_prefixes = ("/auth/", "/health", "/static/")
 
     @app.before_request
@@ -59,9 +54,15 @@ def _register_auth_gate(app: Flask) -> None:
 
 
 def _register_dashboards(app: Flask) -> None:
+    from .dashboards.commercial import init_commercial_dashboard
+    from .dashboards.customers import init_customers_dashboard
+    from .dashboards.finance import init_finance_dashboard
     from .dashboards.operations import init_operations_dashboard
 
     init_operations_dashboard(app)
+    init_commercial_dashboard(app)
+    init_finance_dashboard(app)
+    init_customers_dashboard(app)
 
 
 def _register_core_routes(app: Flask) -> None:
