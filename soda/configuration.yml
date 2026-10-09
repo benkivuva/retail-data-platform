@@ -1,0 +1,7 @@
+data_source retail_bigquery:
+  type: bigquery
+  connection:
+    account_info_json_path: C:\keys\retail-data-platform-sa-v2.json
+    project_id: retail-data-platform-511008
+    dataset: raw
+  schema: raw

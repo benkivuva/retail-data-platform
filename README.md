@@ -26,6 +26,7 @@ Lineage:
 - **Warehouse:** Google BigQuery
 - **Transformation:** dbt Core with `dbt-bigquery`
 - **Orchestration:** Dagster (daily schedule, asset-level observability)
+- **Data Quality:** dbt tests (in-warehouse) + Soda Core (anomaly detection)
 - **Language:** SQL, Python
 - **Environment:** `uv` for Python and dependency management
 - **BI:** Looker Studio
@@ -51,11 +52,20 @@ formulas, owners, and the change process.
 
 ## Data Quality
 
-111 automated tests including:
+Two complementary layers:
 
+**dbt tests (in-warehouse)** — 111 automated tests covering:
 - Primary and foreign key checks
 - Custom business rules (order reconciliation, delivery timing, inventory bounds, payment limits)
 - Metric bounds on `metrics_daily`
+
+**Soda Core (raw-layer anomaly detection)** — 10 checks on the raw dataset:
+- Row count is never zero
+- Duplicate and missing IDs on primary keys
+- Negative financial values (revenue, discount, quantity)
+- Row-count thresholds for anomaly detection
+
+The Soda scan runs as a downstream Dagster asset; a failed scan fails the pipeline. See `soda/checks.yml`.
 
 See [docs/data_quality_log.md](docs/data_quality_log.md) for the incident and fix.
 
@@ -72,10 +82,11 @@ Link: [dashboards/dashboard_link.md](dashboards/dashboard_link.md)
 
 ## Orchestration
 
-Dagster orchestrates the full dbt pipeline as a single asset graph: one Dagster
-asset per dbt model, with a daily 6 AM schedule and dbt-test-based guardrails
-that halt downstream models on failure. Every dbt run is tracked in the Dagster
-UI with per-asset status, timing, and error logs.
+Dagster orchestrates the full pipeline as an asset graph: one Dagster asset per
+dbt model plus a downstream Soda scan. A daily 6 AM schedule triggers the run.
+dbt tests halt downstream models on failure, and a failed Soda scan fails the
+run. Every execution is tracked in the Dagster UI with per-asset status, timing,
+and error logs.
 
 ![Dagster DAG](docs/dagster_lineage.png)
 
@@ -143,7 +154,11 @@ See [.github/workflows/dbt_ci.yml](.github/workflows/dbt_ci.yml).
 
        uv run dagster dev -f orchestration/definitions.py
 
-9. Optional — run the AI assistant:
+9. Optional — run Soda checks standalone:
+
+       uv run soda scan -d retail_bigquery -c soda/configuration.yml soda/checks.yml
+
+10. Optional — run the AI assistant:
 
        $env:GEMINI_API_KEY = "your-key"
        uv run python ai/ask.py
@@ -182,8 +197,11 @@ See [.github/workflows/dbt_ci.yml](.github/workflows/dbt_ci.yml).
     │   │   └── ai/
     │   └── tests/               # custom singular tests
     ├── docs/
-    ├── orchestration/
-    │   └── definitions.py       # Dagster assets + daily schedule
+|   ├── orchestration/
+    │   └── definitions.py       # Dagster assets + daily schedule + Soda scan
+    ├── soda/
+    │   ├── configuration.yml    # Soda BigQuery connection
+    │   └── checks.yml           # 10 anomaly + validation checks
     ├── tests/
     │   └── test_safe_query.py   # unit tests for the AI allowlist
     └── pyproject.toml

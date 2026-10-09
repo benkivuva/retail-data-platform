@@ -1,0 +1,29 @@
+checks for orders:
+  - row_count > 0:
+      name: Orders table is not empty
+
+  - duplicate_count(order_id) = 0:
+      name: No duplicate order IDs
+  - missing_count(order_id) = 0:
+      name: No missing order IDs
+
+  - min(net_revenue) >= 0:
+      name: Net revenue is never negative
+  - min(gross_amount) >= 0:
+      name: Gross amount is never negative
+  - min(discount_amount) >= 0:
+      name: Discount is never negative
+
+  - row_count:
+      name: Row count anomaly check
+      warn:
+        when > 10000
+        when < 100
+
+checks for inventory_snapshots:
+  - row_count > 0:
+      name: Inventory table is not empty
+  - missing_count(product_id) = 0:
+      name: No missing product IDs
+  - min(qty_on_hand) >= 0:
+      name: Quantity on hand is never negative
