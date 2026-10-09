@@ -184,6 +184,7 @@ See [.github/workflows/dbt_ci.yml](.github/workflows/dbt_ci.yml).
 
 ## Documentation
 
+- [Architecture](docs/architecture.md)
 - [Metric Dictionary](docs/metric_dictionary.md)
 - [Data Catalogue](docs/data_catalogue.md)
 - [Runbook](docs/runbook.md)
