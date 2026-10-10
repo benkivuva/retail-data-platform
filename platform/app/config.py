@@ -19,17 +19,20 @@ class BaseConfig:
     SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-secret-change-me")
     GCP_PROJECT: str = os.getenv("GCP_PROJECT", "")
 
+    # Tests set this to False. Dashboards query BigQuery at registration time,
+    # and unit tests should never hit the network.
+    REGISTER_DASHBOARDS: bool = True
+
     SQLALCHEMY_DATABASE_URI: str = os.getenv("DATABASE_URL", _DEFAULT_DB_URL)
     SQLALCHEMY_TRACK_MODIFICATIONS: bool = False
 
     CACHE_TYPE: str = "SimpleCache"
     CACHE_DEFAULT_TIMEOUT: int = 300
 
-    # Session cookie hardening
     SESSION_COOKIE_HTTPONLY: bool = True
     SESSION_COOKIE_SAMESITE: str = "Lax"
-    SESSION_COOKIE_SECURE: bool = False   # overridden to True in ProdConfig
-    PERMANENT_SESSION_LIFETIME: int = 8 * 60 * 60   # 8 hours
+    SESSION_COOKIE_SECURE: bool = False
+    PERMANENT_SESSION_LIFETIME: int = 8 * 60 * 60
 
     WTF_CSRF_ENABLED: bool = True
 
@@ -40,5 +43,5 @@ class DevConfig(BaseConfig):
 
 class ProdConfig(BaseConfig):
     DEBUG = False
-    SESSION_COOKIE_SECURE = True           # HTTPS only in prod
+    SESSION_COOKIE_SECURE = True
     PREFERRED_URL_SCHEME = "https"

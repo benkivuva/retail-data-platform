@@ -27,7 +27,8 @@ def create_app(config_class=DevConfig) -> Flask:
 
     _register_blueprints(app)
     _register_auth_gate(app)
-    _register_dashboards(app)
+    if app.config.get("REGISTER_DASHBOARDS", True):
+        _register_dashboards(app)
     _register_core_routes(app)
 
     with app.app_context():
