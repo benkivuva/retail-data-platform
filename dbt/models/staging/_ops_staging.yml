@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: stg_ops_zone_master
+    description: "Cleaned ops zone reference: unique zone IDs, standardised counties."
+    columns:
+      - name: zone_id
+        tests: [unique, not_null]
+      - name: county
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Nairobi', 'Kiambu']
+
+  - name: stg_ops_driver_roster
+    description: "Cleaned driver assignments: dates parsed, phones in E.164, unknown zones flagged."
+    columns:
+      - name: driver_name_raw
+        tests: [not_null]
+      - name: status
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['active', 'on_leave', 'sick', 'unknown']
+
+  - name: stg_ops_vehicle_log
+    description: "Cleaned vehicle maintenance log: normalised registrations and vehicle types."
+    columns:
+      - name: vehicle_reg
+        tests: [not_null]
+      - name: vehicle_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Toyota Hiace', 'Isuzu NPR', 'Mitsubishi Canter', 'Nissan NV200', 'Toyota Probox', 'Suzuki Carry', 'Unknown']
