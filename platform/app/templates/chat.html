@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>AI Assistant · Retail Data Platform</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .chat-shell { max-width: 900px; margin: 0 auto; padding: 24px; }
+        .chat-header h1 { margin: 0 0 4px 0; font-size: 24px; font-weight: 700; }
+        .chat-header p { margin: 0 0 24px 0; color: #64748b; font-size: 14px; }
+        .chat-log {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            min-height: 400px;
+            max-height: 60vh;
+            overflow-y: auto;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .msg { margin-bottom: 16px; display: flex; }
+        .msg .bubble {
+            padding: 12px 16px;
+            border-radius: 12px;
+            max-width: 75%;
+            line-height: 1.5;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        .msg.user { justify-content: flex-end; }
+        .msg.user .bubble { background: #0f766e; color: white; border-bottom-right-radius: 4px; }
+        .msg.assistant .bubble { background: #f1f5f9; color: #0f172a; border-bottom-left-radius: 4px; }
+        .msg.error .bubble { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+        .msg.thinking .bubble { background: #f1f5f9; color: #64748b; font-style: italic; }
+        .chat-form { display: flex; gap: 12px; margin-top: 16px; }
+        .chat-form input[type=text] {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .chat-form input[type=text]:focus {
+            outline: none;
+            border-color: #0f766e;
+            box-shadow: 0 0 0 3px rgba(15,118,110,0.12);
+        }
+        .chat-form button {
+            padding: 12px 24px;
+            background: #0f766e;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .chat-form button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .suggestions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+        .suggestions button {
+            padding: 8px 14px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #475569;
+            cursor: pointer;
+        }
+        .suggestions button:hover { border-color: #0f766e; color: #0f766e; }
+    </style>
+</head>
+<body style="background:#f1f5f9; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; margin:0;">
+    <div id="topbar-slot"></div>
+    <div class="chat-shell">
+        <div class="chat-header">
+            <h1>AI Assistant</h1>
+            <p>Ask business questions in plain English. Answers come from the same metrics as the dashboards.</p>
+        </div>
+
+        <div id="chat-log" class="chat-log">
+            <div class="msg assistant">
+                <div class="bubble">Hi! Ask me about orders, revenue, deliveries, or customers. For example: "What was on-time delivery rate last week?"</div>
+            </div>
+        </div>
+
+        <form id="chat-form" class="chat-form" autocomplete="off">
+            <input id="question" type="text" name="question" placeholder="Ask a question…" maxlength="500" required autofocus>
+            <button id="send" type="submit">Send</button>
+        </form>
+
+        <div class="suggestions">
+            <button type="button">How many customers per segment?</button>
+            <button type="button">What was on-time delivery rate last week?</button>
+            <button type="button">Top product categories by average margin</button>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        const log = document.getElementById('chat-log');
+        const form = document.getElementById('chat-form');
+        const input = document.getElementById('question');
+        const send = document.getElementById('send');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+        function append(role, text) {
+            const wrap = document.createElement('div');
+            wrap.className = 'msg ' + role;
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            bubble.textContent = text;
+            wrap.appendChild(bubble);
+            log.appendChild(wrap);
+            log.scrollTop = log.scrollHeight;
+            return wrap;
+        }
+
+        async function submitQuestion(question) {
+            append('user', question);
+            const thinking = append('thinking', 'Thinking…');
+            send.disabled = true;
+
+            try {
+                const resp = await fetch('/ai/ask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify({ question }),
+                });
+                const data = await resp.json();
+                thinking.remove();
+                if (!resp.ok) {
+                    append('error', data.error || 'Request failed.');
+                } else {
+                    append('assistant', data.answer || '(no answer)');
+                }
+            } catch (err) {
+                thinking.remove();
+                append('error', 'Network error: ' + err.message);
+            } finally {
+                send.disabled = false;
+                input.focus();
+            }
+        }
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const q = input.value.trim();
+            if (!q) return;
+            input.value = '';
+            submitQuestion(q);
+        });
+
+        document.querySelectorAll('.suggestions button').forEach(function (b) {
+            b.addEventListener('click', function () {
+                submitQuestion(b.textContent);
+            });
+        });
+    })();
+    </script>
+</body>
+</html>
