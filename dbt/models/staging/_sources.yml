@@ -4,7 +4,7 @@ sources:
   - name: raw
     database: retail-data-platform-511008
     schema: raw
-    description: "Raw CSVs loaded from source systems. Not to be queried directly by analysts."
+    description: "Raw CSVs and sheets loaded from source systems. Not to be queried directly by analysts."
     tables:
       - name: suppliers
       - name: products
@@ -15,3 +15,6 @@ sources:
       - name: deliveries
       - name: inventory_snapshots
       - name: supplier_orders
+      - name: ops_zone_master
+      - name: ops_driver_roster
+      - name: ops_vehicle_log

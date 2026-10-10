@@ -26,10 +26,13 @@ models:
         tests: [unique, not_null]
 
   - name: dim_drivers
-    description: "Driver dimension."
+    description: "Driver dimension with the most recent phone and assignment counts."
     columns:
       - name: driver_id
+        description: "Deterministic surrogate key (md5 of normalised name)."
         tests: [unique, not_null]
+      - name: driver_name
+        tests: [not_null]
 
   - name: dim_warehouses
     description: "Warehouse dimension."
