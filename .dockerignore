@@ -1,0 +1,27 @@
+# Version control
+.git/
+.gitignore
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Local dev artefacts
+platform/.env
+platform/platform.db
+platform/tests/
+
+# Data pipeline (not needed in the platform image)
+data/
+dbt/
+orchestration/
+soda/
+dashboards/
+docs/
+
+# Optional
+*.md
+!README.md
