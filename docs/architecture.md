@@ -10,7 +10,7 @@ data moves from source to business value.
     Orders   ──┐
     Items      │
     Payments   │    Python          BigQuery        dbt            Looker Studio
-    Deliveries ├──► generator   ──►  raw       ──►   staging   ──►  (BI)
+    Deliveries ├──► generator   ──►  raw       ──►   staging   ──►  Flask + Dash
     Inventory  │    + bq load         │             intermediate      │
     Products   │                      │             marts             │
     Customers  │                      │             ai                │
@@ -96,6 +96,57 @@ The AI assistant (`ai/ask.py`) reads a context document (`ai/context.md`) and
 calls a `run_sql` tool. Every query passes an allowlist that permits only
 SELECT statements against these three views.
 
+## Serving layers
+
+Everything below reads from `marts` or `ai`. Nothing reads from `raw`,
+`staging`, or `intermediate`, and nothing writes.
+
+### Looker Studio (hosted)
+
+A five-page dashboard reading directly from `marts`:
+
+- Operations, Commercial, Finance, Customers
+- Pipeline Health (reads `mon_pipeline_health`)
+
+Configured outside the repo. Link recorded in `dashboards/dashboard_link.md`.
+
+### Flask + Plotly Dash (`platform/`)
+
+An owned, code-first BI application:
+
+- **Flask app factory** — `platform/app/__init__.py` builds the app, registers
+  blueprints, applies the auth gate, and mounts each Dash dashboard.
+- **Dashboards** — one module per page under `platform/app/dashboards/`, each
+  mounted on its own URL base (`/dashboards/<name>/`). All share topbar, KPI
+  cards, and chart styling via `_shared.py`.
+- **Query layer** — `platform/app/queries/bigquery.py` owns every SQL
+  statement. Dashboards never construct queries directly. All queries are
+  parameterised and 5-minute memoised.
+- **Auth** — Flask-Login with a SQLite-backed `users` table. Three roles:
+  admin (all pages), analyst (all dashboards), viewer (operations + commercial
+  only). `require_login` runs on every request except `/auth/*`, `/health`,
+  and `/static/*`.
+- **Session hardening** — `SESSION_COOKIE_HTTPONLY`, `SameSite=Lax`, 8-hour
+  lifetime, CSRF protection on forms, generic login error messages,
+  open-redirect guard on `next=`.
+- **AI chat page** — `/ai/chat` calls the same governed assistant as the CLI,
+  via a thin service layer (`platform/app/ai/service.py`). Every question
+  passes through the same SQL allowlist.
+- **Container** — multi-stage `Dockerfile`, non-root `appuser`, gunicorn
+  serving `wsgi:app` on port 8080. Secrets (service account key, API keys,
+  session secret) are passed at runtime via env vars and read-only volume
+  mounts; nothing is baked into the image.
+
+### Gemini AI (governed SQL)
+
+A function-calling assistant available two ways:
+
+- CLI (`ai/ask.py`) — for ad-hoc queries.
+- Web page (`/ai/chat` inside the platform) — for stakeholders.
+
+Both share the same `ask()` implementation, the same `ai/context.md` system
+prompt, and the same `is_safe_query()` allowlist.
+
 ## Orchestration
 
 Dagster orchestrates the pipeline as an asset graph.
@@ -123,12 +174,26 @@ Dagster run. In CI, a failing test blocks the merge.
 
 ## Monitoring
 
-Three layers:
+Four layers:
 
 - **Dagster UI** — per-asset run history, timing, and error logs
 - **Soda Core** — anomaly alerts on the raw layer
-- **Looker Studio (Pipeline Health page)** — freshness lag, row counts, latest
+- **Looker Studio (Pipeline Health)** — freshness lag, row counts, latest
   metric date, served from `marts.mon_pipeline_health`
+- **Platform CI** — pytest + Docker build on every push
+
+## Security and governance
+
+- **PII isolation** — customer names, emails, phones, addresses never leave
+  `marts.dim_customers`. AI and dashboards see aggregates only.
+- **AI allowlist** — the assistant can only SELECT from three PII-free views.
+  Non-SELECT statements, multi-statement payloads, and disallowed tables are
+  rejected before reaching BigQuery. Covered by unit tests.
+- **Role-based access** — three roles gate dashboard visibility.
+- **Session hardening** — CSRF, HTTPOnly cookies, SameSite, finite lifetime,
+  open-redirect protection.
+- **Secrets** — never committed. `.env` for local dev; GitHub Secrets for CI;
+  runtime env vars + mounted volumes for the container.
 
 ## Cost and performance
 
@@ -138,6 +203,7 @@ Three layers:
   rows to one row per day, cutting scanned bytes for dashboards and AI
 - **Column selection, never `SELECT *`** — BigQuery costs scale with columns
   read, not rows
+- **Response caching** — platform queries are memoised for 5 minutes
 
 See `docs/cost_report.md` for the full breakdown.
 
@@ -148,6 +214,8 @@ See `docs/cost_report.md` for the full breakdown.
 | Synthetic CSV generator | Fivetran, Airbyte, or custom connectors per source system |
 | `bq load` CLI | Orchestrated ingestion jobs with retries and alerting |
 | Local Dagster dev server | Dagster+ or a scheduled VM |
+| SQLite user DB | Postgres or a managed identity provider (SSO) |
+| Single-container Flask app | Multiple replicas behind a load balancer (Cloud Run, ECS) |
 | Manual dashboard refresh | Scheduled Looker Studio refresh |
 | File-based catalogue | DataHub, OpenMetadata, or dbt Cloud catalogue |
 | Hand-written AI context | Auto-generated from the dbt manifest |
@@ -162,7 +230,8 @@ See `docs/cost_report.md` for the full breakdown.
 | Marts (dims and facts) | Analytics Engineering + domain owner | PR + tests + owner sign-off |
 | `metrics_daily` | Analytics Engineering + metric owner | PR + owner sign-off + change note |
 | AI views and assistant | Analytics Engineering | PR + unit tests |
-| Dashboards | Domain analysts | PR to dashboard repo |
+| Flask + Dash platform | Analytics Engineering | PR + pytest + Docker build |
+| Looker Studio dashboards | Domain analysts | PR to dashboard repo |
 
 ## Related documents
 
