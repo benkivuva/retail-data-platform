@@ -1,7 +1,7 @@
-"""Tests for the AI SQL allowlist — the safety layer around Gemini."""
+"""Tests for the AI SQL allowlist — the safety layer around the assistant."""
 from __future__ import annotations
 
-from ai.ask import is_safe_query
+from ai.tools import is_safe_query
 
 
 def test_select_against_allowed_table_passes():
