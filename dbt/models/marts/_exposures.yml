@@ -1,0 +1,55 @@
+version: 2
+
+exposures:
+  - name: looker_studio_dashboard
+    type: dashboard
+    maturity: high
+    description: >
+      Five-page Looker Studio dashboard serving Operations, Commercial,
+      Finance, Customers, and Pipeline Health. Reads directly from marts.
+    depends_on:
+      - ref('metrics_daily')
+      - ref('mon_pipeline_health')
+      - ref('fct_orders')
+      - ref('fct_deliveries')
+      - ref('fct_inventory_snapshots')
+      - ref('dim_customers')
+      - ref('dim_products')
+      - ref('dim_delivery_zones')
+    owner:
+      name: Analytics Engineering
+      email: benkivuvak5@gmail.com
+    url: https://datastudio.google.com/reporting/77894e85-444f-4024-a357-0698b6abb93e
+
+  - name: flask_dash_platform
+    type: application
+    maturity: medium
+    description: >
+      Flask + Plotly Dash application serving four dashboards and a governed
+      AI chat page. Reads marts.* and ai.* only.
+    depends_on:
+      - ref('metrics_daily')
+      - ref('fct_orders')
+      - ref('fct_deliveries')
+      - ref('fct_inventory_snapshots')
+      - ref('dim_customers')
+      - ref('dim_products')
+      - ref('ai_daily_metrics')
+      - ref('ai_customers_summary')
+    owner:
+      name: Analytics Engineering
+      email: benkivuvak5@gmail.com
+
+  - name: gemini_ai_assistant
+    type: application
+    maturity: medium
+    description: >
+      Governed AI assistant (CLI and web) with a SQL allowlist that permits
+      only SELECT statements against three PII-free views in the ai dataset.
+    depends_on:
+      - ref('ai_daily_metrics')
+      - ref('ai_customers_summary')
+      - ref('ai_products_summary')
+    owner:
+      name: Analytics Engineering
+      email: benkivuvak5@gmail.com

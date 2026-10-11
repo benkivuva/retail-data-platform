@@ -29,9 +29,9 @@ Serving layers (all read from `marts` or `ai`):
                 ->  Looker Studio         (5-page business dashboard)
                 ->  Gemini assistant      (governed SQL, allowlist-protected)
 
-Lineage:
+Lineage (models plus downstream consumers via dbt exposures):
 
-![lineage](docs/lineage.png)
+![lineage](docs/dbt_lineage_with_exposures.png)
 
 ## Stack
 

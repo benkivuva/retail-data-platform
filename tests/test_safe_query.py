@@ -1,12 +1,7 @@
-"""Unit tests for the SQL allowlist in ai/ask.py."""
+"""Unit tests for the SQL allowlist in ai/tools.py."""
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ai"))
-
-from ask import ALLOWED_TABLES, is_safe_query  # noqa: E402
+from ai.tools import ALLOWED_TABLES, is_safe_query
 
 
 def test_accepts_plain_select():
