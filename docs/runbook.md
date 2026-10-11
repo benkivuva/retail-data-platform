@@ -19,6 +19,32 @@ uv run python data/scripts/load_raw_to_bigquery.py
 cd dbt
 uv run dbt build --full-refresh
 
+## Backfill a Model for a Date Range
+
+    uv run python data/scripts/backfill.py --model fct_orders --start 2026-09-01 --end 2026-09-30
+
+Passes `start_date` and `end_date` to dbt via `--vars`. Any model that
+references `var('start_date')` and `var('end_date')` will filter to that range.
+Models that do not reference the vars are unaffected.
+
+Flags:
+
+- `--full-refresh` — add `dbt run --full-refresh` (drops and rebuilds)
+- `--dry-run` — print the command without running it
+
+### Footgun: full tables
+
+Models materialised as `table` (not `incremental`) will be **replaced** by
+the date-range subset, not appended to. After a backfill on a table model,
+always run a full refresh to restore the complete dataset:
+
+    cd dbt
+    uv run dbt run --select fct_orders --full-refresh
+
+Backfilling is safe on incremental models once billing is enabled. On the
+BigQuery Sandbox, incremental is blocked, so the range filter acts as a
+subset selector rather than a partial refresh.
+
 ## Reload the Ops Google Sheet
 
 Run from the repository root:
