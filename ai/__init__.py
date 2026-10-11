@@ -1,0 +1,1 @@
+"""AI layer: provider-agnostic assistant with governed SQL access."""
