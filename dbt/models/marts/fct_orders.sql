@@ -17,3 +17,7 @@ select
     items_cost,
     gross_margin
 from {{ ref('int_order_totals') }}
+
+{% if var('start_date', none) is not none and var('end_date', none) is not none %}
+  where order_date between '{{ var("start_date") }}' and '{{ var("end_date") }}'
+{% endif %}
