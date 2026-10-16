@@ -2,26 +2,33 @@
 .git/
 .gitignore
 
-# Python
+# Python environment and caches
 .venv/
 __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Local dev artefacts
+# Local dev artefacts (contains secrets and local DBs)
 platform/.env
 platform/platform.db
-platform/tests/
 
-# Data pipeline (not needed in the platform image)
-data/
-dbt/
-orchestration/
-soda/
-dashboards/
+# Secrets and env files (never bake these into any image)
+.env
+.env.*
+!.env.example
+
+# OS noise
+.DS_Store
+*.log
+
+# Docs and dashboards (not needed in either runtime)
 docs/
-
-# Optional
+dashboards/
 *.md
 !README.md
+
+# Synthetic CSV data — dead weight in the runtime image
+data/raw/

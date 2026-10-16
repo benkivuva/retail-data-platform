@@ -5,11 +5,17 @@ Three asset groups:
   - dbt:        one asset per dbt model (via dagster-dbt)
   - quality:    Soda Core scan on the raw layer
 
-A daily schedule triggers the full pipeline at 06:00.
+A daily schedule triggers the full pipeline at 06:00 Africa/Nairobi.
+
+Subprocess calls use the venv's own interpreter and binaries (via
+sys.executable) rather than `uv run`, so the container does not need uv
+installed at runtime.
 """
 from __future__ import annotations
 
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 import dagster as dg
@@ -23,9 +29,18 @@ from dagster_dbt import (
 # ------------------------------------------------------------------ paths
 ROOT_DIR = Path(__file__).parent.parent
 DBT_PROJECT_DIR = ROOT_DIR / "dbt"
-DBT_PROFILES_DIR = Path.home() / ".dbt"
+
+# Prefer a container-provided profile directory; fall back to the repo's dbt/.
+DBT_PROFILES_DIR = Path(
+    os.getenv("DBT_PROFILES_DIR", str(ROOT_DIR / "dbt"))
+)
+
 SODA_CONFIG_PATH = ROOT_DIR / "soda" / "configuration.yml"
 SODA_CHECKS_PATH = ROOT_DIR / "soda" / "checks.yml"
+
+# Venv binaries, resolved from the interpreter running Dagster.
+PYTHON_BIN = sys.executable
+SODA_BIN = str(Path(sys.executable).parent / "soda")
 
 # ------------------------------------------------------------------ dbt
 dbt_project = DbtProject(
@@ -49,7 +64,7 @@ def retail_dbt_assets(context, dbt: DbtCliResource):
 )
 def ops_sheets_ingestion(context) -> None:
     result = subprocess.run(
-        ["uv", "run", "python", "data/scripts/load_sheets_to_bigquery.py"],
+        [PYTHON_BIN, "data/scripts/load_sheets_to_bigquery.py"],
         capture_output=True,
         text=True,
         cwd=ROOT_DIR,
@@ -70,7 +85,7 @@ def ops_sheets_ingestion(context) -> None:
 def soda_raw_checks(context) -> None:
     result = subprocess.run(
         [
-            "uv", "run", "soda", "scan",
+            SODA_BIN, "scan",
             "-d", "retail_bigquery",
             "-c", str(SODA_CONFIG_PATH),
             str(SODA_CHECKS_PATH),
@@ -92,6 +107,7 @@ daily_pipeline = build_schedule_from_dbt_selection(
     [retail_dbt_assets],
     job_name="materialize_dbt_models",
     cron_schedule="0 6 * * *",
+    execution_timezone="Africa/Nairobi",
     dbt_select="fqn:*",
 )
 
