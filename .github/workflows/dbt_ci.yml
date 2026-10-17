@@ -8,7 +8,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write # Required for Workload Identity Federation
+  id-token: write
 
 jobs:
   build:
@@ -35,31 +35,20 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
-      - name: Write dbt profiles.yml (using ADC)
-        run: |
-          mkdir -p ~/.dbt
-          cat > ~/.dbt/profiles.yml <<EOF
-          retail_data_platform:
-            outputs:
-              dev:
-                type: bigquery
-                method: oauth
-                project: ${{ secrets.GCP_PROJECT_ID }}
-                dataset: staging
-                threads: 4
-                location: US
-                job_execution_timeout_seconds: 300
-                job_retries: 1
-                priority: interactive
-            target: dev
-          EOF
-
       - name: dbt debug
         working-directory: dbt
+        env:
+          DBT_PROFILES_DIR: . 
+          GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+          DBT_DATASET: staging
         run: uv run dbt debug
 
       - name: dbt build
         working-directory: dbt
+        env:
+          DBT_PROFILES_DIR: .
+          GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+          DBT_DATASET: staging
         run: uv run dbt build
       
       - name: Run unit tests
