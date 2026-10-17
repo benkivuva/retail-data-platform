@@ -1,0 +1,59 @@
+# ---------- build stage ----------
+FROM python:3.12-slim AS builder
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+WORKDIR /app
+
+COPY pyproject.toml uv.lock ./
+
+ENV UV_PROJECT_ENVIRONMENT=/app/.venv
+RUN uv sync --frozen --no-dev --no-install-project
+
+# ---------- runtime stage ----------
+FROM python:3.12-slim
+
+# curl is used by the HEALTHCHECK below.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -u 1000 appuser
+
+WORKDIR /app
+
+# Copy the built virtualenv from the builder stage
+COPY --from=builder /app/.venv /app/.venv
+
+# Copy only what Dagster + dbt + Soda need at runtime
+COPY orchestration/ ./orchestration/
+COPY dbt/           ./dbt/
+COPY soda/          ./soda/
+COPY data/          ./data/
+COPY pyproject.toml uv.lock ./
+
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONUNBUFFERED=1
+ENV DBT_PROFILES_DIR=/app/dbt
+ENV DAGSTER_HOME=/app/.dagster
+ENV TZ=Africa/Nairobi
+
+# Generate the dbt manifest so Dagster can load dbt assets at import time.
+# `dbt parse` does not connect to BigQuery, so no credentials are needed.
+RUN cd /app/dbt && dbt parse
+
+RUN mkdir -p /app/.dagster && chown -R appuser:appuser /app
+
+USER appuser
+
+EXPOSE 3000
+
+# Dagster webserver is the default. Two Deployment objects use this image:
+#   - webserver:  command = ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-m", "orchestration.definitions"]
+#   - daemon:     command = ["dagster-daemon", "run", "-m", "orchestration.definitions"]
+# Running both in one container is an anti-pattern; Kubernetes schedules them separately.
+CMD ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-m", "orchestration.definitions"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD curl -fsS http://localhost:3000/server_info || exit 1

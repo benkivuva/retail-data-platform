@@ -187,3 +187,27 @@ For issues with the source Google Sheet itself (wrong data, missing zones,
 duplicate rows), contact the Operations team owner directly. The pipeline
 handles defensively what it can, but source-side corrections need to happen
 in the sheet.
+
+## dbt profiles
+
+The dbt profile lives at `dbt/profiles.yml` inside the repo — not in
+`~/.dbt/profiles.yml`. It contains no secrets; every value comes from an
+environment variable with a safe fallback:
+
+- `GCP_PROJECT` — defaults to `retail-data-platform-511008`
+- `DBT_DATASET` — defaults to `staging`
+- `DBT_TARGET` — defaults to `dev`
+
+Authentication uses `method: oauth` (Application Default Credentials). No
+JSON key file is required or referenced.
+
+- **Locally:** run `gcloud auth application-default login` once. ADC is
+  cached in `~/.config/gcloud/application_default_credentials.json`.
+- **In GKE:** Workload Identity injects ADC automatically via the pod's
+  bound Kubernetes Service Account. No secret mount is needed.
+
+Soda (`soda/configuration.yml`) uses the same ADC mechanism.
+
+Dagster reads the profile location from the `DBT_PROFILES_DIR` environment
+variable, defaulting to `dbt/` inside the repository. The Dagster Docker
+image sets this to `/app/dbt`.

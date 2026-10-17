@@ -30,8 +30,13 @@ COPY platform/ ./platform/
 COPY ai/ ./ai/
 COPY wsgi.py ./
 
+# Writable directory for runtime state (SQLite database, cache files).
+# Owned by appuser so the app can create its own files at runtime.
+RUN mkdir -p /app/data && chown appuser:appuser /app/data
+
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
+ENV DATABASE_URL=sqlite:////app/data/platform.db
 
 USER appuser
 

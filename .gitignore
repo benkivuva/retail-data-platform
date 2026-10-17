@@ -26,3 +26,6 @@ platform/*.db
 platform/__pycache__/
 __pycache__/
 *.pyc
+dbt/.user.yml
+dbt/target/
+dbt/logs/
