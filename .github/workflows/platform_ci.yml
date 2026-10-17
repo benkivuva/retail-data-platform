@@ -48,6 +48,7 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_CI_SA }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
@@ -66,7 +67,6 @@ jobs:
             -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/dagster:main-latest \
             .
 
-      # Only push on merges to main, not on PRs
       - name: Push Images
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
@@ -74,3 +74,27 @@ jobs:
           docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/flask-app:main-latest
           docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/dagster:${{ github.sha }}
           docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/dagster:main-latest
+
+      # NEW STEP: Update Repo 3 with the new image SHA
+      - name: Update GitOps Manifests
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GITOPS_PAT: ${{ secrets.GITOPS_PAT }}
+        run: |
+          # 1. Configure git with the PAT
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          
+          # 2. Clone Repo 3 using the PAT
+          git clone https://x-access-token:${GITOPS_PAT}@github.com/benkivuva/retail-platform-gitops.git
+          cd retail-platform-gitops
+          
+          # 3. Replace main-latest with the specific Git SHA in all deployment files
+          sed -i "s|flask-app:main-latest|flask-app:${{ github.sha }}|g" apps/flask/deployment.yaml
+          sed -i "s|dagster:main-latest|dagster:${{ github.sha }}|g" apps/dagster/deployment-webserver.yaml
+          sed -i "s|dagster:main-latest|dagster:${{ github.sha }}|g" apps/dagster/deployment-daemon.yaml
+          
+          # 4. Commit and push
+          git add apps/
+          git commit -m "chore(gitops): update image tags to ${{ github.sha }}" || echo "No changes to commit"
+          git push origin main
