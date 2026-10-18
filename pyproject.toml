@@ -33,7 +33,7 @@ dependencies = [
     "opentelemetry-instrumentation>=0.66b1",
     "pandas>=3.0.6",
     "plotly>=7.1.0",
-    "psycopg[binary]>=3.3.6",
+    "psycopg2-binary>=2.9.13",
     "python-dotenv>=1.2.4",
     "soda-core-bigquery>=3.5.6",
 ]
