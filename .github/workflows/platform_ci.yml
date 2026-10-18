@@ -67,6 +67,30 @@ jobs:
             -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/dagster:main-latest \
             .
 
+      # --- SHIFT-LEFT SECURITY SCANNING ---
+
+      - name: Scan Flask Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/flask-app:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1' # Fail the pipeline if vulnerabilities are found
+          ignore-unfixed: true # Ignore vulnerabilities that have no available patch
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Scan Dagster Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/dagster:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      # -----------------------------------------------
+
       - name: Push Images
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
@@ -75,7 +99,6 @@ jobs:
           docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/dagster:${{ github.sha }}
           docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/dagster:main-latest
 
-      # NEW STEP: Update Repo 3 with the new image SHA
       - name: Update GitOps Manifests
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
@@ -89,10 +112,10 @@ jobs:
           git clone https://x-access-token:${GITOPS_PAT}@github.com/benkivuva/retail-platform-gitops.git
           cd retail-platform-gitops
           
-          # 3. Replace main-latest with the specific Git SHA in all deployment files
-          sed -i "s|flask-app:main-latest|flask-app:${{ github.sha }}|g" apps/flask/deployment.yaml
-          sed -i "s|dagster:main-latest|dagster:${{ github.sha }}|g" apps/dagster/deployment-webserver.yaml
-          sed -i "s|dagster:main-latest|dagster:${{ github.sha }}|g" apps/dagster/deployment-daemon.yaml
+          # 3. Replace the image tag with the specific Git SHA
+          sed -i "s|flask-app:.*|flask-app:${{ github.sha }}|g" apps/flask/deployment.yaml
+          sed -i "s|dagster:.*|dagster:${{ github.sha }}|g" apps/dagster/deployment-webserver.yaml
+          sed -i "s|dagster:.*|dagster:${{ github.sha }}|g" apps/dagster/deployment-daemon.yaml
           
           # 4. Commit and push
           git add apps/
