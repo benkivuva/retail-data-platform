@@ -1,0 +1,12 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: retail-data-platform
+  description: Python, dbt, Flask, and Dagster application code
+  annotations:
+    github.com/project-slug: benkivuva/RetailDataPlatform
+spec:
+  type: service
+  lifecycle: production
+  owner: guests
+  system: retail-data-platform
